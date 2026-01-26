@@ -1,0 +1,144 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id            String      @id @default(cuid())
+  name          String
+  description   String?
+  customerEmail String
+  status        ProjectStatus @default(NOT_STARTED)
+  startDate     DateTime?
+  endDate       DateTime?
+  expectedCompletionDate DateTime?
+  hubspotDealId String?    @unique
+  hubspotContactId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  milestones    Milestone[]
+  tasks         Task[]
+  tokens        ProjectToken[]
+  activityLogs  ActivityLog[]
+
+  @@index([customerEmail])
+  @@index([status])
+  @@index([hubspotDealId])
+}
+
+model ProjectToken {
+  id            String   @id @default(cuid())
+  token         String   @unique
+  projectId     String
+  customerEmail String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([projectId])
+  @@index([customerEmail])
+}
+
+model Milestone {
+  id                     String   @id @default(cuid())
+  projectId              String
+  name                   String
+  description            String?
+  status                 MilestoneStatus @default(PENDING)
+  targetDate             DateTime?
+  completedDate          DateTime?
+  order                  Int      @default(0)
+  prerequisiteMilestoneIds Json?  // Array of milestone IDs that must be completed first (stored as JSON)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  project                Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model Task {
+  id            String   @id @default(cuid())
+  projectId     String
+  name          String
+  description   String?
+  status        TaskStatus @default(TODO)
+  assignedTo   String?
+  dueDate      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  projectId     String
+  type          String   // e.g., "milestone_completed", "status_changed", "note_added"
+  message       String
+  metadata      String?  // JSON string for additional data
+  createdAt     DateTime @default(now())
+
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  hubspotUserId String?  @unique
+  role          UserRole @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+  @@index([hubspotUserId])
+}
+
+enum ProjectStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum MilestoneStatus {
+  PENDING
+  SCHEDULED
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+  BLOCKED
+  CHANGES_REQUESTED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
