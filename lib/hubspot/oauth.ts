@@ -33,7 +33,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{
 
   const client = new Client()
 
-  const tokenResponse = await client.oauth.tokensApi.createToken(
+  const tokenResponse = await client.oauth.tokensApi.create(
     'authorization_code',
     code,
     HUBSPOT_REDIRECT_URI,
