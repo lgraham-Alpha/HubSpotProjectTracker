@@ -1,8 +1,32 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Milestone, ActivityLog } from '@prisma/client'
 import { computeScheduleRisk, getBlockingItems, getNextBlockingItems, RiskLevel } from '@/lib/utils/milestone'
+
+/** Serialized milestone (dates as ISO strings) as sent from server */
+interface SerializedMilestone {
+  id: string
+  projectId: string
+  name: string
+  description: string | null
+  status: string
+  targetDate: string | null
+  completedDate: string | null
+  order: number
+  prerequisiteMilestoneIds: unknown
+  createdAt: string
+  updatedAt: string
+}
+
+/** Serialized activity log as sent from server */
+interface SerializedActivityLog {
+  id: string
+  projectId: string
+  type: string
+  message: string
+  metadata: string | null
+  createdAt: string
+}
 
 interface ProjectData {
   id: string
@@ -10,15 +34,8 @@ interface ProjectData {
   description: string | null
   status: string
   expectedCompletionDate: string | null
-  milestones: Array<Milestone & {
-    targetDate: string | null
-    completedDate: string | null
-    createdAt: string
-    updatedAt: string
-  }>
-  activityLogs: Array<ActivityLog & {
-    createdAt: string
-  }>
+  milestones: SerializedMilestone[]
+  activityLogs: SerializedActivityLog[]
 }
 
 interface TrackPageClientProps {
