@@ -33,9 +33,14 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/projects')
       const data = await res.json()
-      setProjects(data)
+      if (!res.ok) {
+        setProjects([])
+        return
+      }
+      setProjects(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching projects:', error)
+      setProjects([])
     } finally {
       setLoading(false)
     }

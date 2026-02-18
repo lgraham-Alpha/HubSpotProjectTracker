@@ -56,9 +56,14 @@ export default function ProjectDetailPage() {
         return
       }
       const data = await res.json()
-      setProject(data)
+      setProject({
+        ...data,
+        milestones: Array.isArray(data.milestones) ? data.milestones : [],
+        tokens: Array.isArray(data.tokens) ? data.tokens : [],
+      })
     } catch (error) {
       console.error('Error fetching project:', error)
+      setProject(null)
     } finally {
       setLoading(false)
     }
