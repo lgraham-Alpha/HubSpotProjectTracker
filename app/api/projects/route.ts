@@ -6,7 +6,13 @@ import { logActivity } from '@/lib/utils/activity'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/projects/route.ts:POST',message:'request body received',data:{keys:Object.keys(body)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     const validated = createProjectSchema.parse(body)
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/projects/route.ts:POST',message:'validation passed',data:{name:validated.name},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
 
     // Convert date strings to Date objects
     const project = await prisma.project.create({
@@ -29,11 +35,17 @@ export async function POST(request: Request) {
       },
     })
 
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/projects/route.ts:POST',message:'prisma create ok',data:{projectId:project.id},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
     // Log activity
     await logActivity(project.id, 'project_created', `Project "${project.name}" was created`)
 
     return NextResponse.json(project, { status: 201 })
   } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/projects/route.ts:POST',message:'catch',data:{name:error?.name,message:error?.message},timestamp:Date.now(),hypothesisId:'H2,H3,H4'})}).catch(()=>{});
+    // #endregion
     if (error.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },

@@ -49,14 +49,22 @@ export default function AdminPage() {
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/page.tsx:handleCreateProject',message:'create project request start',data:{hasName:!!formData.name,hasEmail:!!formData.customerEmail},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       })
 
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/page.tsx:handleCreateProject',message:'create project response',data:{status:res.status,ok:res.ok,contentType:res.headers.get('content-type')},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
+
       if (!res.ok) {
-        const error = await res.json()
+        let error: { error?: string } = {}
+        try { error = await res.json() } catch (_) { error = { error: 'Response not JSON' } }
         alert(`Error: ${error.error}`)
         return
       }
@@ -66,7 +74,10 @@ export default function AdminPage() {
       setFormData({ name: '', description: '', customerEmail: '' })
       setShowCreateForm(false)
       fetchProjects()
-    } catch (error) {
+    } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/page.tsx:handleCreateProject',message:'create project catch',data:{errName:error?.name,errMessage:error?.message},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
       console.error('Error creating project:', error)
       alert('Failed to create project')
     }
