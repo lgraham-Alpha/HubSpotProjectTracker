@@ -46,31 +46,61 @@ A comprehensive project tracking system integrated with HubSpot. Customers can c
    npm run dev
    ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+7. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Quick Start Guide
+
+### Admin Dashboard
+Visit `http://localhost:3000/admin` to:
+- Create projects
+- Generate tracking links
+- Manage milestones
+- View project details
+
+### Customer Dashboard
+Customers visit their tracking link (e.g., `http://localhost:3000/track/[token]`) to:
+- View project status
+- See milestone timeline
+- Check risk indicators
+- View activity feed
 
 ## Project Structure
 
 ```
 ├── app/                    # Next.js App Router
+│   ├── admin/             # Admin dashboard pages
 │   ├── api/               # API routes
+│   │   ├── projects/     # Project management endpoints
+│   │   ├── milestones/   # Milestone endpoints
+│   │   ├── hubspot/      # HubSpot integration
 │   │   └── public/       # Public endpoints (customer-facing)
 │   ├── track/             # Customer dashboard pages
 │   └── layout.tsx        # Root layout
 ├── lib/                   # Utilities and shared code
 │   ├── db.ts             # Prisma client
-│   └── utils/            # Helper functions
+│   ├── hubspot/          # HubSpot API client & OAuth
+│   ├── utils/            # Helper functions
+│   └── validations/      # Zod schemas
 ├── prisma/                # Database schema
 │   └── schema.prisma
-└── components/            # React components (to be created)
+└── components/            # React components
 ```
 
 ## Key Features
 
+- **Admin Dashboard**: Full project management UI at `/admin`
 - **Customer Dashboard**: Secure token-based access (no login required)
 - **Email-tied Tokens**: Tokens are linked to customer email addresses
 - **No Expiration**: Customers can check status anytime
-- **Real-time Updates**: Auto-refreshing project status
+- **Real-time Updates**: Auto-refreshing project status (every 5 minutes)
 - **HubSpot Integration**: One-way sync from HubSpot to tracker
+- **RESTful API**: Complete API for programmatic access
+- **Milestone Management**: Track progress with prerequisites and risk indicators
 
 ## Development
 

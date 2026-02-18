@@ -1,5 +1,19 @@
 # Quick Deployment Guide
 
+## Deploy on Push (Git → Rebuild)
+
+Once the app is connected to GitHub, **every push to the linked branch (e.g. `main`) triggers a new build and deploy**. No need to click "Deploy" in the dashboard—just:
+
+```bash
+git add .
+git commit -m "Your changes"
+git push origin main
+```
+
+DigitalOcean will detect the push, run the build, and deploy the new version. You can watch the build in the App Platform dashboard.
+
+---
+
 ## Step 1: Push to GitHub
 
 ```bash
@@ -30,7 +44,7 @@ git push -u origin main
    - **Name**: `hubspot-project-tracker` (or your choice)
    - **Region**: Choose closest to you
    - **Type**: Web Service
-   - **Build Command**: `npm run build`
+   - **Build Command**: `npx prisma generate && npm run build`
    - **Run Command**: `npm start`
    - **Environment**: Node.js (auto-detected)
 
