@@ -7,7 +7,7 @@ services:
       branch: main
       deploy_on_push: true
     build_command: npx prisma generate && npm run build
-    run_command: npm start
+    run_command: npx prisma db push && npm start
     environment_slug: node-js
     instance_count: 1
     instance_size_slug: basic-xxs

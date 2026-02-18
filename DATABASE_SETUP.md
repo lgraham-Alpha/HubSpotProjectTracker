@@ -4,7 +4,9 @@
 
 **Cause:** The app is connected to the database, but the Prisma schema has never been applied, so no tables exist.
 
-**Fix:** Run the schema once against your production database.
+**What the app does:** On every start, the app runs `npx prisma db push` then `npm start`. So once your database user can create tables (see below), the next deploy or restart will create them automatically. If `prisma db push` fails (e.g. permission denied), the app will not start and you’ll see the error in the logs.
+
+**Fix:** Ensure your database user can create tables in the `public` schema, then deploy or restart.
 
 ### Option 1: DigitalOcean app database (if you have schema permission)
 
@@ -28,4 +30,10 @@
    npx prisma db push
    ```
 
-After `prisma db push` succeeds, the tables exist and "Error: Failed to create project" / "table does not exist" will stop.
+After `prisma db push` succeeds (or runs automatically on start), the tables exist and "Error: Failed to create project" / "table does not exist" will stop.
+
+**If you configured the app in the DigitalOcean UI** (not from `.do/app.yaml`), set the app’s **Run Command** to:
+```bash
+npx prisma db push && npm start
+```
+Then save and redeploy.
