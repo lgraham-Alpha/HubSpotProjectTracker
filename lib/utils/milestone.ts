@@ -139,8 +139,8 @@ export function getNextBlockingItems(milestones: Milestone[]): string[] {
     }
   }
 
-  // Remove duplicates
-  return [...new Set(blockingItems)]
+  // Remove duplicates (Array.from for ES5 target compatibility)
+  return Array.from(new Set(blockingItems))
 }
 
 /**
