@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { updateMilestoneSchema } from '@/lib/validations/project'
 import { logActivity } from '@/lib/utils/activity'
@@ -77,8 +78,8 @@ export async function PUT(
     if (validated.order !== undefined) updateData.order = validated.order
     if (validated.prerequisiteMilestoneIds !== undefined) {
       updateData.prerequisiteMilestoneIds = validated.prerequisiteMilestoneIds.length > 0
-        ? JSON.stringify(validated.prerequisiteMilestoneIds)
-        : null
+        ? (JSON.stringify(validated.prerequisiteMilestoneIds) as unknown as Prisma.InputJsonValue)
+        : Prisma.JsonNull
     }
 
     // Auto-set completedDate if status is COMPLETED and completedDate is not set

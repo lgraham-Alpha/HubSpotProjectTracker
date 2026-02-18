@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { createMilestoneSchema } from '@/lib/validations/project'
 import { logActivity } from '@/lib/utils/activity'
@@ -41,9 +42,9 @@ export async function POST(
         status: validated.status || 'PENDING',
         targetDate: validated.targetDate ? new Date(validated.targetDate) : null,
         order,
-        prerequisiteMilestoneIds: validated.prerequisiteMilestoneIds
-          ? JSON.stringify(validated.prerequisiteMilestoneIds)
-          : null,
+        prerequisiteMilestoneIds: validated.prerequisiteMilestoneIds?.length
+          ? (JSON.stringify(validated.prerequisiteMilestoneIds) as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     })
 
