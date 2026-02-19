@@ -7,10 +7,10 @@ export function getHubSpotClient(accessToken?: string): Client {
     return new Client({ accessToken })
   }
 
-  // For server-side API calls using developer API key
-  const apiKey = process.env.HUBSPOT_DEVELOPER_API_KEY
-  if (apiKey) {
-    return new Client({ apiKey })
+  // For server-side: Private App token (HubSpot expects accessToken, not apiKey)
+  const token = process.env.HUBSPOT_DEVELOPER_API_KEY
+  if (token) {
+    return new Client({ accessToken: token })
   }
 
   throw new Error('HubSpot client not configured. Need either accessToken or HUBSPOT_DEVELOPER_API_KEY')

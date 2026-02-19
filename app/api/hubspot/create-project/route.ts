@@ -76,8 +76,15 @@ export async function POST(request: Request) {
       },
     })
 
-    // Build tracking URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Build tracking URL (use request origin when env not set, e.g. in production)
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
+    if (!baseUrl) {
+      try {
+        baseUrl = new URL(request.url).origin
+      } catch {
+        baseUrl = 'http://localhost:3000'
+      }
+    }
     const trackingUrl = `${baseUrl}/track/${token}`
 
     // Update HubSpot deal with project ID and status
