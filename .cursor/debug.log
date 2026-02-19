@@ -1,4 +1,0 @@
-{"location":"admin/page.tsx:handleCreateProject","message":"create project request start","data":{"hasName":true,"hasEmail":true},"timestamp":1771451135484,"hypothesisId":"H1"}
-{"location":"admin/page.tsx:handleCreateProject","message":"create project response","data":{"status":500,"ok":false,"contentType":"application/json"},"timestamp":1771451135608,"hypothesisId":"H5"}
-{"location":"admin/page.tsx:handleCreateProject","message":"create project request start","data":{"hasName":true,"hasEmail":true},"timestamp":1771451508054,"hypothesisId":"H1"}
-{"location":"admin/page.tsx:handleCreateProject","message":"create project response","data":{"status":500,"ok":false,"contentType":"application/json"},"timestamp":1771451508213,"hypothesisId":"H5"}
