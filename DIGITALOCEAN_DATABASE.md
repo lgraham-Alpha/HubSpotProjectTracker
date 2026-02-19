@@ -1,10 +1,32 @@
 # Make the app work on DigitalOcean (DO-only)
 
-Use a **standalone** DigitalOcean Managed Database and give your app user permission to create tables. Then the app’s existing run command will create tables on deploy.
+Give your app’s database user permission to create tables by running one command as **doadmin**, then redeploy.
 
 ---
 
-## Step 1: Create a standalone PostgreSQL database
+## If you have doadmin (app or standalone database)
+
+1. In your database cluster, open **Connection details** (or **Users**) and get:
+   - **doadmin** password
+   - **Host**, **Port**, **Database** (e.g. `defaultdb` or `dev-db-869550`)
+2. Note the **username your app uses** in `DATABASE_URL` (e.g. `dev-db-869550` or `appuser`). The schema must be owned by this user.
+3. From your machine (with `psql` installed), run **one** command (replace placeholders with real values):
+
+   ```bash
+   psql "postgresql://doadmin:DOADMIN_PASSWORD@HOST:PORT/DATABASE?sslmode=require" -c "ALTER SCHEMA public OWNER TO \"APP_USERNAME\";"
+   ```
+
+   **Example** (if app user is `dev-db-869550`, database is `dev-db-869550`):
+
+   ```bash
+   psql "postgresql://doadmin:your_doadmin_password@app-xxx.db.ondigitalocean.com:25060/dev-db-869550?sslmode=require" -c "ALTER SCHEMA public OWNER TO \"dev-db-869550\";"
+   ```
+
+4. Redeploy your app (or restart). The run command `npx prisma db push && npm start` will create the tables and the app will work.
+
+---
+
+## If you don’t have doadmin: create a standalone PostgreSQL database
 
 1. In DigitalOcean go to **Databases** (main menu, not inside your app).
 2. Click **Create Database Cluster**.
