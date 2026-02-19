@@ -16,6 +16,8 @@
 - ✅ Updating HubSpot properties (if you create them)
 - ✅ All project management logic
 
+**Customer tracking link (view only):** The link you send to customers is **read-only**. They can only view project and milestone status. All edits (including marking milestones complete) happen in the **admin portal** or via **HubSpot** (workflow actions / custom variables like `project_status`).
+
 ---
 
 ## Option 1: Standalone (No HubSpot Required) ✅

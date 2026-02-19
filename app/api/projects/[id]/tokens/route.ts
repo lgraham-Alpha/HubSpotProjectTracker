@@ -4,6 +4,18 @@ import { generateSecureToken } from '@/lib/utils/token'
 import { createTokenSchema } from '@/lib/validations/project'
 import { logActivity } from '@/lib/utils/activity'
 
+/** Base URL for tracking links: prefer env, then request origin, then localhost. */
+function getBaseUrl(request: Request): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
+  }
+  try {
+    return new URL(request.url).origin
+  } catch {
+    return 'http://localhost:3000'
+  }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -11,6 +23,7 @@ export async function POST(
   try {
     const body = await request.json()
     const validated = createTokenSchema.parse(body)
+    const baseUrl = getBaseUrl(request)
 
     // Verify project exists
     const project = await prisma.project.findUnique({
@@ -43,7 +56,7 @@ export async function POST(
 
     if (existingToken) {
       // Return existing token
-      const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/track/${existingToken.token}`
+      const trackingUrl = `${baseUrl}/track/${existingToken.token}`
       return NextResponse.json({
         token: existingToken.token,
         trackingUrl,
@@ -70,7 +83,7 @@ export async function POST(
       `Tracking link generated for ${validated.customerEmail}`
     )
 
-    const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/track/${token}`
+    const trackingUrl = `${baseUrl}/track/${token}`
 
     return NextResponse.json(
       {
@@ -106,7 +119,7 @@ export async function GET(
       orderBy: { createdAt: 'desc' },
     })
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = getBaseUrl(request)
 
     const serialized = tokens.map(token => ({
       ...token,

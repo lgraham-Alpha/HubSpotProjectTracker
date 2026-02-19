@@ -135,7 +135,7 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header with refresh indicator */}
+        {/* Header with refresh indicator — view only; no editing on this page */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
@@ -150,8 +150,11 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
           {project.description && (
             <p className="text-gray-600 mb-2">{project.description}</p>
           )}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 mb-1">
             Last updated: {formatTimeAgo(lastUpdated)}
+          </p>
+          <p className="text-xs text-gray-400 italic">
+            View only. Milestone status and completion are updated by your team via the admin portal and HubSpot.
           </p>
         </div>
 
