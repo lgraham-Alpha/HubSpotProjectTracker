@@ -198,6 +198,25 @@ export async function getProjectTrackingRecord(recordId: string) {
   return data
 }
 
+/** Update properties on a Project tracking record (e.g. write the TrackerLink back). */
+export async function updateProjectTrackingRecord(recordId: string, properties: Record<string, string>) {
+  const token = getAccessToken()
+  const res = await fetch(
+    new URL(`/crm/v3/objects/${PROJECT_TRACKING_OBJECT_TYPE}/${recordId}`, HUBSPOT_API_BASE).toString(),
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties }),
+    }
+  )
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const message = data.message || data.errors?.[0]?.message || res.statusText
+    throw new Error(`HubSpot API ${res.status}: ${message}`)
+  }
+  return data
+}
+
 /** Shape a raw record into project + tasks array for display */
 export function projectTrackingToProjectAndTasks(record: {
   id: string

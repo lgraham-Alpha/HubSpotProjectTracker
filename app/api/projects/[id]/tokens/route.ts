@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { generateSecureToken } from '@/lib/utils/token'
 import { logActivity } from '@/lib/utils/activity'
+import { updateProjectTrackingRecord } from '@/lib/hubspot/project-tracking'
 
 /** Base URL for tracking links: prefer env, then request origin, then localhost. */
 function getBaseUrl(request: Request): string {
@@ -35,47 +36,36 @@ export async function POST(
 
     // One active token per project: reuse if exists
     const existingToken = await prisma.projectToken.findFirst({
-      where: {
-        projectId: params.id,
-        isActive: true,
-      },
+      where: { projectId: params.id, isActive: true },
     })
+
+    let trackingUrl: string
 
     if (existingToken) {
-      const trackingUrl = `${baseUrl}/track/${existingToken.token}`
-      return NextResponse.json({
-        token: existingToken.token,
-        trackingUrl,
-        message: 'Tracking link already exists for this project',
+      trackingUrl = `${baseUrl}/track/${existingToken.token}`
+    } else {
+      const token = generateSecureToken()
+      await prisma.projectToken.create({
+        data: { token, projectId: params.id, customerEmail: project.customerEmail, isActive: true },
       })
+      await logActivity(params.id, 'token_generated', `Tracking link generated`)
+      trackingUrl = `${baseUrl}/track/${token}`
     }
 
-    const token = generateSecureToken()
-
-    const projectToken = await prisma.projectToken.create({
-      data: {
-        token,
-        projectId: params.id,
-        customerEmail: project.customerEmail,
-        isActive: true,
-      },
-    })
-
-    await logActivity(
-      params.id,
-      'token_generated',
-      `Tracking link generated`
-    )
-
-    const trackingUrl = `${baseUrl}/track/${token}`
+    // Write the tracking link back to the HubSpot Project tracking record
+    if (project.hubspotProjectTrackingId) {
+      try {
+        await updateProjectTrackingRecord(project.hubspotProjectTrackingId, {
+          trackerlink: trackingUrl,
+        })
+      } catch (err) {
+        console.error('[HubSpot] Failed to write TrackerLink back to HubSpot:', err)
+      }
+    }
 
     return NextResponse.json(
-      {
-        token: projectToken.token,
-        trackingUrl,
-        createdAt: projectToken.createdAt.toISOString(),
-      },
-      { status: 201 }
+      { trackingUrl },
+      { status: existingToken ? 200 : 201 }
     )
   } catch (error: any) {
     console.error('Error generating token:', error)
