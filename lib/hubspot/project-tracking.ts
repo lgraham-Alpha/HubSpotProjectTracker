@@ -124,6 +124,20 @@ export const TASK_PROPERTY_LABELS: Record<string, string> = {
   added_to_crm: 'Added to CRM',
 }
 
+/** Property names that are date fields in HubSpot (target dates → SCHEDULED + targetDate) */
+export const DATE_TARGET_PROPERTY_NAMES = new Set<string>([
+  'targeted_go_live',
+  'targeted_installation',
+  'targeted_training',
+])
+
+/** Property names that are date fields in HubSpot (actual dates → COMPLETED + completedDate) */
+export const DATE_ACTUAL_PROPERTY_NAMES = new Set<string>([
+  'actual_go_live',
+  'actual_installation',
+  'actual_training',
+])
+
 function getAccessToken(): string {
   const token = process.env.HUBSPOT_DEVELOPER_API_KEY
   if (!token) {
