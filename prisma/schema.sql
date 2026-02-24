@@ -19,14 +19,17 @@ CREATE TABLE "Project" (
   "expectedCompletionDate" TIMESTAMP(3),
   "hubspotDealId" TEXT,
   "hubspotContactId" TEXT,
+  "hubspotProjectTrackingId" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "Project_pkey" PRIMARY KEY ("id")
 );
 CREATE UNIQUE INDEX "Project_hubspotDealId_key" ON "Project"("hubspotDealId");
+CREATE UNIQUE INDEX "Project_hubspotProjectTrackingId_key" ON "Project"("hubspotProjectTrackingId");
 CREATE INDEX "Project_customerEmail_idx" ON "Project"("customerEmail");
 CREATE INDEX "Project_status_idx" ON "Project"("status");
 CREATE INDEX "Project_hubspotDealId_idx" ON "Project"("hubspotDealId");
+CREATE INDEX "Project_hubspotProjectTrackingId_idx" ON "Project"("hubspotProjectTrackingId");
 
 CREATE TABLE "ProjectToken" (
   "id" TEXT NOT NULL,
@@ -52,6 +55,7 @@ CREATE TABLE "Milestone" (
   "targetDate" TIMESTAMP(3),
   "completedDate" TIMESTAMP(3),
   "order" INTEGER NOT NULL DEFAULT 0,
+  "sourceId" TEXT,
   "prerequisiteMilestoneIds" JSONB,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +63,7 @@ CREATE TABLE "Milestone" (
 );
 CREATE INDEX "Milestone_projectId_idx" ON "Milestone"("projectId");
 CREATE INDEX "Milestone_status_idx" ON "Milestone"("status");
+CREATE INDEX "Milestone_projectId_sourceId_idx" ON "Milestone"("projectId", "sourceId");
 ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 CREATE TABLE "Task" (
