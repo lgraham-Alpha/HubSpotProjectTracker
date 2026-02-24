@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { generateSecureToken } from '@/lib/utils/token'
-import { createTokenSchema } from '@/lib/validations/project'
 import { logActivity } from '@/lib/utils/activity'
 
 /** Base URL for tracking links: prefer env, then request origin, then localhost. */
@@ -21,11 +20,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json()
-    const validated = createTokenSchema.parse(body)
     const baseUrl = getBaseUrl(request)
 
-    // Verify project exists
     const project = await prisma.project.findUnique({
       where: { id: params.id },
     })
@@ -37,50 +33,38 @@ export async function POST(
       )
     }
 
-    // Verify email matches project customer email
-    if (project.customerEmail !== validated.customerEmail) {
-      return NextResponse.json(
-        { error: 'Email does not match project customer email' },
-        { status: 400 }
-      )
-    }
-
-    // Check if token already exists for this project and email
+    // One active token per project: reuse if exists
     const existingToken = await prisma.projectToken.findFirst({
       where: {
         projectId: params.id,
-        customerEmail: validated.customerEmail,
         isActive: true,
       },
     })
 
     if (existingToken) {
-      // Return existing token
       const trackingUrl = `${baseUrl}/track/${existingToken.token}`
       return NextResponse.json({
         token: existingToken.token,
         trackingUrl,
-        message: 'Token already exists for this project and email',
+        message: 'Tracking link already exists for this project',
       })
     }
 
-    // Generate new token
     const token = generateSecureToken()
 
     const projectToken = await prisma.projectToken.create({
       data: {
         token,
         projectId: params.id,
-        customerEmail: validated.customerEmail,
+        customerEmail: project.customerEmail,
         isActive: true,
       },
     })
 
-    // Log activity
     await logActivity(
       params.id,
       'token_generated',
-      `Tracking link generated for ${validated.customerEmail}`
+      `Tracking link generated`
     )
 
     const trackingUrl = `${baseUrl}/track/${token}`
@@ -89,18 +73,11 @@ export async function POST(
       {
         token: projectToken.token,
         trackingUrl,
-        customerEmail: projectToken.customerEmail,
         createdAt: projectToken.createdAt.toISOString(),
       },
       { status: 201 }
     )
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
-        { status: 400 }
-      )
-    }
     console.error('Error generating token:', error)
     return NextResponse.json(
       { error: 'Failed to generate token' },

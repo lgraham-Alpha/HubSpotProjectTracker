@@ -125,7 +125,7 @@ export default function ProjectDetailPage() {
       const res = await fetch(`/api/projects/${projectId}/tokens`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerEmail: project.customerEmail }),
+        body: JSON.stringify({}),
       })
 
       if (!res.ok) {
@@ -196,7 +196,6 @@ export default function ProjectDetailPage() {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-2xl font-bold">{project.name}</h1>
-              <p className="text-gray-600 mt-1">{project.customerEmail}</p>
               {project.description && (
                 <p className="text-gray-500 mt-2">{project.description}</p>
               )}

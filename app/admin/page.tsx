@@ -80,12 +80,12 @@ export default function AdminPage() {
     }
   }
 
-  const handleGenerateToken = async (projectId: string, customerEmail: string) => {
+  const handleGenerateToken = async (projectId: string) => {
     try {
       const res = await fetch(`/api/projects/${projectId}/tokens`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerEmail }),
+        body: JSON.stringify({}),
       })
 
       if (!res.ok) {
@@ -236,7 +236,6 @@ export default function AdminPage() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold">{project.name}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{project.customerEmail}</p>
                       {project.description && (
                         <p className="text-sm text-gray-500 mt-2">{project.description}</p>
                       )}
@@ -258,7 +257,7 @@ export default function AdminPage() {
                         View Details
                       </a>
                       <button
-                        onClick={() => handleGenerateToken(project.id, project.customerEmail)}
+                        onClick={() => handleGenerateToken(project.id)}
                         className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
                       >
                         Get Tracking Link
