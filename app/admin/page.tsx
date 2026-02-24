@@ -19,6 +19,7 @@ export default function AdminPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -27,6 +28,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchProjects()
+  }, [])
+
+  // Refresh project list every 60s so HubSpot-synced projects appear automatically
+  useEffect(() => {
+    const interval = setInterval(fetchProjects, 60_000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchProjects = async () => {
@@ -111,6 +118,30 @@ export default function AdminPage() {
     }
   }
 
+  const handleSyncFromHubSpot = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/hubspot/sync')
+      const data = await res.json()
+      if (!res.ok) {
+        alert(`Sync failed: ${data.error ?? res.statusText}`)
+        return
+      }
+      const { projectsCreated, projectsUpdated, error } = data
+      if (error) {
+        alert(`Sync error: ${error}`)
+        return
+      }
+      await fetchProjects()
+      alert(`Sync complete. Created: ${projectsCreated}, Updated: ${projectsUpdated}`)
+    } catch (e) {
+      console.error('Sync error:', e)
+      alert('Sync failed. Check console and ensure HUBSPOT_DEVELOPER_API_KEY is set.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen p-8">
@@ -126,12 +157,21 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Project Tracker Admin</h1>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-          >
-            {showCreateForm ? 'Cancel' : '+ Create Project'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSyncFromHubSpot}
+              disabled={syncing}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {syncing ? 'Syncing…' : 'Sync from HubSpot'}
+            </button>
+            <button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              {showCreateForm ? 'Cancel' : '+ Create Project'}
+            </button>
+          </div>
         </div>
 
         {showCreateForm && (
@@ -181,8 +221,9 @@ export default function AdminPage() {
         )}
 
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 border-b">
+          <div className="px-6 py-4 border-b flex justify-between items-center">
             <h2 className="text-xl font-semibold">Projects</h2>
+            <span className="text-sm text-gray-500">List refreshes every 60s; use “Sync from HubSpot” to pull now</span>
           </div>
           {projects.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
