@@ -8,13 +8,19 @@
 import { prisma } from '@/lib/db'
 import {
   listProjectTrackingRecords,
+  updateProjectTrackingRecord,
   TASK_PROPERTY_LABELS,
   TASK_PROPERTY_NAMES,
   DATE_TARGET_PROPERTY_NAMES,
   DATE_ACTUAL_PROPERTY_NAMES,
 } from '@/lib/hubspot/project-tracking'
 import { listTasksForHubSpotProject } from '@/lib/hubspot/project-tasks'
+import { generateSecureToken } from '@/lib/utils/token'
 import type { MilestoneStatus } from '@prisma/client'
+
+function getAppBaseUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '') || 'http://localhost:3000'
+}
 
 const HUBSPOT_TASK_SOURCE_PREFIX = 'hubspot-task-'
 
@@ -125,6 +131,24 @@ export async function runHubSpotProjectSync(): Promise<SyncResult> {
         })
         projectId = created.id
         result.projectsCreated += 1
+      }
+
+      // Ensure every project has an active tracking token and write the link back to HubSpot
+      const existingToken = await prisma.projectToken.findFirst({
+        where: { projectId, isActive: true },
+        select: { token: true },
+      })
+      const tokenValue = existingToken?.token ?? generateSecureToken()
+      if (!existingToken) {
+        await prisma.projectToken.create({
+          data: { token: tokenValue, projectId, customerEmail, isActive: true },
+        })
+      }
+      const trackingUrl = `${getAppBaseUrl()}/track/${tokenValue}`
+      try {
+        await updateProjectTrackingRecord(hubspotId, { trackerlink: trackingUrl })
+      } catch (err) {
+        console.error('[HubSpot sync] Failed to write trackerlink for', hubspotId, err)
       }
 
       const mappedProjectId = (props.mapped_project ?? '').trim()
