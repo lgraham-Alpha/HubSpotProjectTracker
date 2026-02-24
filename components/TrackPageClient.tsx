@@ -8,6 +8,7 @@ interface SerializedMilestone {
   name: string
   description: string | null
   status: string
+  sourceId: string | null
   targetDate: string | null
   completedDate: string | null
   order: number
@@ -15,6 +16,15 @@ interface SerializedMilestone {
   createdAt: string
   updatedAt: string
 }
+
+const KEY_DATE_SOURCE_IDS = new Set([
+  'targeted_go_live',
+  'actual_go_live',
+  'targeted_installation',
+  'actual_installation',
+  'targeted_training',
+  'actual_training',
+])
 
 interface SerializedActivityLog {
   id: string
@@ -63,15 +73,18 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
     return () => clearInterval(interval)
   }, [refreshData])
 
-  const completedMilestones = project.milestones.filter(m => m.status === 'COMPLETED').length
-  const totalMilestones = project.milestones.length
+  const keyDates = project.milestones.filter(m => m.sourceId && KEY_DATE_SOURCE_IDS.has(m.sourceId) && (m.targetDate || m.completedDate))
+  const checklistMilestones = project.milestones.filter(m => !m.sourceId || !KEY_DATE_SOURCE_IDS.has(m.sourceId))
+
+  const completedMilestones = checklistMilestones.filter(m => m.status === 'COMPLETED').length
+  const totalMilestones = checklistMilestones.length
   const progressPercentage = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0
 
   const statusLabel = progressPercentage === 100 ? 'Completed' : progressPercentage > 0 ? 'In Progress' : project.status === 'ON_HOLD' ? 'On Hold' : 'Not Started'
   const statusColor = progressPercentage === 100 ? 'bg-emerald-500' : progressPercentage > 0 ? 'bg-blue-500' : project.status === 'ON_HOLD' ? 'bg-amber-500' : 'bg-slate-400'
 
-  const upcoming = project.milestones.filter(m => m.status !== 'COMPLETED')
-  const completed = project.milestones.filter(m => m.status === 'COMPLETED')
+  const upcoming = checklistMilestones.filter(m => m.status !== 'COMPLETED')
+  const completed = checklistMilestones.filter(m => m.status === 'COMPLETED')
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -109,6 +122,27 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
             <p className="mt-2 text-sm text-slate-500">
               Expected completion: <span className="font-medium text-slate-700">{formatDate(project.expectedCompletionDate)}</span>
             </p>
+          )}
+
+          {/* Key Dates */}
+          {keyDates.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Key Dates</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {keyDates.map(m => {
+                  const date = m.targetDate || m.completedDate
+                  const isPast = date ? new Date(date) < new Date() : false
+                  return (
+                    <div key={m.id} className="flex flex-col gap-0.5">
+                      <span className="text-xs text-slate-400">{m.name}</span>
+                      <span className={`text-base font-semibold ${isPast ? 'text-slate-900' : 'text-blue-600'}`}>
+                        {formatDate(date)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>
