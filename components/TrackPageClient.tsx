@@ -119,56 +119,32 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
         {/* Upcoming milestones */}
         {upcoming.length > 0 && (
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-6">Upcoming</h2>
-            <div className="relative">
-              {/* Vertical line */}
-              <div className="absolute left-3.5 top-0 bottom-0 w-px bg-slate-200" />
-              <div className="space-y-0">
-                {upcoming.map((milestone, i) => {
-                  const isFirst = i === 0
-                  return (
-                    <div key={milestone.id} className="relative flex items-start gap-5 pb-8 last:pb-0">
-                      {/* Dot */}
-                      <div className={`relative z-10 shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center mt-0.5 bg-white ${
-                        milestone.status === 'IN_PROGRESS' ? 'border-blue-500' :
-                        milestone.status === 'SCHEDULED' ? 'border-blue-400' :
-                        isFirst ? 'border-slate-400' :
-                        'border-slate-200'
-                      }`}>
-                        {milestone.status === 'IN_PROGRESS' && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-                        )}
-                        {milestone.status === 'SCHEDULED' && (
-                          <div className="w-2 h-2 rounded-full bg-blue-400" />
-                        )}
-                        {milestone.status !== 'IN_PROGRESS' && milestone.status !== 'SCHEDULED' && (
-                          <div className={`w-2 h-2 rounded-full ${isFirst ? 'bg-slate-400' : 'bg-slate-200'}`} />
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className={`font-medium ${isFirst ? 'text-slate-900' : 'text-slate-600'}`}>
-                            {milestone.name}
-                          </p>
-                          {milestone.status === 'IN_PROGRESS' && (
-                            <span className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">In Progress</span>
-                          )}
-                        </div>
-                        {milestone.description && (
-                          <p className="mt-0.5 text-sm text-slate-400">{milestone.description}</p>
-                        )}
-                        <div className="mt-1 flex gap-4 text-xs text-slate-400">
-                          {milestone.targetDate && (
-                            <span>Scheduled: {formatDate(milestone.targetDate)}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">In Progress &amp; Upcoming</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {upcoming.map((milestone) => (
+                <div key={milestone.id} className={`rounded-xl border p-4 bg-white flex flex-col gap-2 ${
+                  milestone.status === 'IN_PROGRESS' ? 'border-blue-200 shadow-sm shadow-blue-50' : 'border-slate-100'
+                }`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`font-medium leading-snug ${milestone.status === 'IN_PROGRESS' ? 'text-slate-900' : 'text-slate-600'}`}>
+                      {milestone.name}
+                    </p>
+                    {milestone.status === 'IN_PROGRESS' && (
+                      <span className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full mt-0.5">
+                        In Progress
+                      </span>
+                    )}
+                  </div>
+                  {milestone.description && (
+                    <p className="text-sm text-slate-400">{milestone.description}</p>
+                  )}
+                  {milestone.targetDate && (
+                    <p className="text-xs text-slate-400 mt-auto pt-1">
+                      Scheduled: <span className="font-medium text-slate-500">{formatDate(milestone.targetDate)}</span>
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           </section>
         )}
@@ -176,32 +152,25 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
         {/* Completed milestones */}
         {completed.length > 0 && (
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-6">Completed</h2>
-            <div className="relative">
-              <div className="absolute left-3.5 top-0 bottom-0 w-px bg-emerald-100" />
-              <div className="space-y-0">
-                {completed.map((milestone) => (
-                  <div key={milestone.id} className="relative flex items-start gap-5 pb-7 last:pb-0">
-                    {/* Check dot */}
-                    <div className="relative z-10 shrink-0 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center mt-0.5">
-                      <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Completed</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {completed.map((milestone) => (
+                <div key={milestone.id} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 flex flex-col gap-1">
+                  <div className="flex items-start gap-2">
+                    <div className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <p className="font-medium text-slate-400 line-through decoration-slate-300">{milestone.name}</p>
-                      <div className="mt-0.5 flex gap-4 text-xs text-slate-300">
-                        {milestone.completedDate && (
-                          <span>Completed {formatDate(milestone.completedDate)}</span>
-                        )}
-                        {!milestone.completedDate && milestone.targetDate && (
-                          <span>{formatDate(milestone.targetDate)}</span>
-                        )}
-                      </div>
-                    </div>
+                    <p className="font-medium text-slate-400 line-through decoration-slate-300 leading-snug">{milestone.name}</p>
                   </div>
-                ))}
-              </div>
+                  {(milestone.completedDate || milestone.targetDate) && (
+                    <p className="text-xs text-slate-300 pl-6">
+                      {milestone.completedDate ? `Completed ${formatDate(milestone.completedDate)}` : formatDate(milestone.targetDate)}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           </section>
         )}
@@ -213,9 +182,7 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
           </div>
         )}
 
-        <p className="text-center text-xs text-slate-300 pt-4">
-          Updates automatically every 5 minutes
-        </p>
+        <p className="text-center text-xs text-slate-300 pt-4">Updates automatically every 5 minutes</p>
       </div>
     </div>
   )
