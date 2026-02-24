@@ -163,12 +163,15 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Project Status</h2>
             <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-              project.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-              project.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+              progressPercentage === 100 ? 'bg-green-100 text-green-800' :
+              progressPercentage > 0 ? 'bg-blue-100 text-blue-800' :
               project.status === 'ON_HOLD' ? 'bg-yellow-100 text-yellow-800' :
               'bg-gray-100 text-gray-800'
             }`}>
-              {project.status.replace('_', ' ')}
+              {progressPercentage === 100 ? 'COMPLETED' :
+               progressPercentage > 0 ? 'IN PROGRESS' :
+               project.status === 'ON_HOLD' ? 'ON HOLD' :
+               'NOT STARTED'}
             </span>
           </div>
           
