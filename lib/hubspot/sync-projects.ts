@@ -10,7 +10,8 @@ import {
   listProjectTrackingRecords,
   TASK_PROPERTY_LABELS,
   TASK_PROPERTY_NAMES,
-  DATE_PROPERTY_NAMES,
+  DATE_TARGET_PROPERTY_NAMES,
+  DATE_ACTUAL_PROPERTY_NAMES,
 } from '@/lib/hubspot/project-tracking'
 import { listTasksForHubSpotProject } from '@/lib/hubspot/project-tasks'
 import type { MilestoneStatus } from '@prisma/client'
@@ -195,9 +196,12 @@ export async function runHubSpotProjectSync(): Promise<SyncResult> {
           let targetDate: Date | null = null
           let completedDate: Date | null = null
 
-          if (DATE_PROPERTY_NAMES.has(sourceId)) {
+          if (DATE_TARGET_PROPERTY_NAMES.has(sourceId)) {
             const date = parseHubSpotDate(value)
             targetDate = date ?? null
+            status = date ? 'COMPLETED' : 'PENDING'
+          } else if (DATE_ACTUAL_PROPERTY_NAMES.has(sourceId)) {
+            const date = parseHubSpotDate(value)
             completedDate = date ?? null
             status = date ? 'COMPLETED' : 'PENDING'
           } else {

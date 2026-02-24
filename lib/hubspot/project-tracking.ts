@@ -124,13 +124,17 @@ export const TASK_PROPERTY_LABELS: Record<string, string> = {
   added_to_crm: 'Added to CRM',
 }
 
-/** Property names that are date fields in HubSpot; when a date is set, treat as COMPLETED with that completedDate. */
-export const DATE_PROPERTY_NAMES = new Set<string>([
+/** Property names that are date fields in HubSpot used as target/scheduled dates (no separate completion needed). */
+export const DATE_TARGET_PROPERTY_NAMES = new Set<string>([
   'targeted_go_live',
-  'actual_go_live',
   'targeted_installation',
-  'actual_installation',
   'targeted_training',
+])
+
+/** Property names that are date fields in HubSpot used as actual/completion dates. */
+export const DATE_ACTUAL_PROPERTY_NAMES = new Set<string>([
+  'actual_go_live',
+  'actual_installation',
   'actual_training',
 ])
 
