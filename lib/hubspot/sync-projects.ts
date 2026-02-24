@@ -27,7 +27,15 @@ const COMPLETED_VALUES = new Set([
   'completed',
   'added',
   'setup',
+])
+
+/** Values that mean "not applicable" -> do not list this milestone at all */
+const NOT_APPLICABLE_VALUES = new Set([
   'not applicable',
+  'not relevant',
+  'n/a',
+  'na',
+  'n.a.',
 ])
 
 function deriveCustomerEmail(properties: Record<string, string | null>): string {
@@ -42,8 +50,12 @@ function hubspotValueToMilestoneStatus(value: string | null | undefined): Milest
   if (value == null || value === '') return 'PENDING'
   const normalized = String(value).toLowerCase().trim()
   if (COMPLETED_VALUES.has(normalized)) return 'COMPLETED'
-  if (normalized === 'not relevant' || normalized === 'not applicable') return 'PENDING'
   return 'PENDING'
+}
+
+function isNotApplicable(value: string | null | undefined): boolean {
+  if (value == null || value === '') return false
+  return NOT_APPLICABLE_VALUES.has(String(value).toLowerCase().trim())
 }
 
 /** Parse HubSpot date value (Unix ms or ISO string) to Date or null. */
@@ -168,10 +180,16 @@ export async function runHubSpotProjectSync(): Promise<SyncResult> {
           console.error('[HubSpot sync] Failed to sync project tasks for mapped_project', mappedProjectId, err)
         }
       } else {
-        for (let order = 0; order < TASK_PROPERTY_NAMES.length; order++) {
-          const sourceId = TASK_PROPERTY_NAMES[order]
+        let orderIndex = 0
+        for (let i = 0; i < TASK_PROPERTY_NAMES.length; i++) {
+          const sourceId = TASK_PROPERTY_NAMES[i]
           const label = TASK_PROPERTY_LABELS[sourceId] ?? sourceId
           const value = props[sourceId] ?? ''
+
+          if (isNotApplicable(value)) {
+            await prisma.milestone.deleteMany({ where: { projectId, sourceId } })
+            continue
+          }
 
           let status: MilestoneStatus
           let targetDate: Date | null = null
@@ -179,13 +197,15 @@ export async function runHubSpotProjectSync(): Promise<SyncResult> {
 
           if (DATE_PROPERTY_NAMES.has(sourceId)) {
             const date = parseHubSpotDate(value)
-            completedDate = date
+            targetDate = date ?? null
+            completedDate = date ?? null
             status = date ? 'COMPLETED' : 'PENDING'
           } else {
             status = hubspotValueToMilestoneStatus(value)
             completedDate = status === 'COMPLETED' ? new Date() : null
           }
 
+          const order = orderIndex++
           const existingMilestone = await prisma.milestone.findFirst({
             where: { projectId, sourceId },
             select: { id: true },
