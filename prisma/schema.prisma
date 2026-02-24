@@ -21,6 +21,7 @@ model Project {
   expectedCompletionDate DateTime?
   hubspotDealId String?    @unique
   hubspotContactId String?
+  hubspotProjectTrackingId String? @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -32,6 +33,7 @@ model Project {
   @@index([customerEmail])
   @@index([status])
   @@index([hubspotDealId])
+  @@index([hubspotProjectTrackingId])
 }
 
 model ProjectToken {
@@ -58,6 +60,7 @@ model Milestone {
   targetDate             DateTime?
   completedDate          DateTime?
   order                  Int      @default(0)
+  sourceId               String?  // HubSpot task property internal name for sync
   prerequisiteMilestoneIds Json?  // Array of milestone IDs that must be completed first (stored as JSON)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
@@ -66,6 +69,7 @@ model Milestone {
 
   @@index([projectId])
   @@index([status])
+  @@index([projectId, sourceId])
 }
 
 model Task {

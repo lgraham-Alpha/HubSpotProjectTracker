@@ -18,6 +18,8 @@ const PROJECT_AND_TASK_PROPERTIES = [
   'mapped_company',
   'mapped_contact',
   'mapped_project',
+  'poc___email',
+  'project_description',
   // Administrative tasks
   'equipment_ordered',
   'equipment_received',
@@ -61,6 +63,25 @@ const PROJECT_AND_TASK_PROPERTIES = [
   // Projectss information
   'added_to_crm',
 ] as const
+
+/** Task property names only (excludes project_name, client_name, mapping, hs_*, poc, description). Used by sync to create milestones. */
+export const TASK_PROPERTY_NAMES: readonly string[] = PROJECT_AND_TASK_PROPERTIES.filter(
+  (p) =>
+    ![
+      'project_name',
+      'client_name',
+      'hs_object_id',
+      'hs_pipeline',
+      'hs_pipeline_stage',
+      'hs_createdate',
+      'hs_lastmodifieddate',
+      'mapped_company',
+      'mapped_contact',
+      'mapped_project',
+      'poc___email',
+      'project_description',
+    ].includes(p)
+)
 
 /** Human-readable labels for task properties (optional, for display) */
 export const TASK_PROPERTY_LABELS: Record<string, string> = {
@@ -172,21 +193,7 @@ export function projectTrackingToProjectAndTasks(record: {
 }) {
   const { id, properties, createdAt, updatedAt } = record
   const projectName = properties.project_name || '(Unnamed project)'
-  const taskPropertyNames = PROJECT_AND_TASK_PROPERTIES.filter(
-    (p) =>
-      ![
-        'project_name',
-        'client_name',
-        'hs_object_id',
-        'hs_pipeline',
-        'hs_pipeline_stage',
-        'hs_createdate',
-        'hs_lastmodifieddate',
-        'mapped_company',
-        'mapped_contact',
-        'mapped_project',
-      ].includes(p)
-  )
+  const taskPropertyNames = [...TASK_PROPERTY_NAMES]
 
   const tasks = taskPropertyNames.map((internalName) => ({
     internalName,

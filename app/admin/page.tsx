@@ -96,6 +96,21 @@ export default function AdminPage() {
     }
   }
 
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    if (!confirm(`Delete "${projectName}"? This removes all milestones, tasks, and tracking links.`)) return
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(err.error || 'Failed to delete')
+        return
+      }
+      fetchProjects()
+    } catch {
+      alert('Failed to delete project')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen p-8">
@@ -206,6 +221,12 @@ export default function AdminPage() {
                         className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
                       >
                         Get Tracking Link
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProject(project.id, project.name)}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>
