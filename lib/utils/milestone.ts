@@ -13,7 +13,10 @@ export function parsePrerequisiteIds(milestone: Milestone): string[] {
   const raw = milestone.prerequisiteMilestoneIds
   if (!raw) return []
   try {
-    return Array.isArray(raw) ? raw : JSON.parse(raw as string)
+    const arr = Array.isArray(raw) ? raw : (JSON.parse(raw as string) as unknown[])
+    return (Array.isArray(arr) ? arr : []).filter(
+      (x): x is string => typeof x === 'string'
+    )
   } catch {
     return []
   }
