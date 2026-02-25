@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alpha Customer Onboarding Tracker (Prototype)</title>
+  <meta name="description" content="Customer-facing onboarding tracker prototype (4–6 weeks). No HubSpot integration in this build." />
+
+  <!-- Tailwind CDN for prototype speed -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React 18 + Babel (in-browser JSX) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+
+<body class="bg-zinc-950">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    // -------------------------
+    // Config / constants
+    // -------------------------
+    const BRAND = {
+      name: "Alpha",
+      logoSrc: "./alpha-wolf.png",
+      accent: "orange",
+    };
+
+    // Badge palette (consistent, simple)
+    const badgeStyle = {
+      // Document statuses
+      "Incomplete": "bg-zinc-900 text-zinc-200 ring-zinc-800",
+      "Not Provided": "bg-zinc-900 text-zinc-200 ring-zinc-800",
+      "In Review": "bg-amber-500/15 text-amber-200 ring-amber-500/25",
+      "Changes Requested": "bg-red-500/15 text-red-200 ring-red-500/25",
+      "Completed": "bg-emerald-500/15 text-emerald-200 ring-emerald-500/25",
+
+      // Timeline statuses
+      "In Progress": "bg-sky-500/15 text-sky-200 ring-sky-500/25",
+      "Scheduled": "bg-sky-500/15 text-sky-200 ring-sky-500/25",
+      "Yes": "bg-emerald-500/15 text-emerald-200 ring-emerald-500/25",
+      "No": "bg-zinc-900 text-zinc-200 ring-zinc-800",
+      "On Hold": "bg-orange-500/15 text-orange-200 ring-orange-500/25",
+    };
+
+    const riskStyle = {
+      "Green": "bg-emerald-500/15 text-emerald-200 ring-emerald-500/25",
+      "Yellow": "bg-amber-500/15 text-amber-200 ring-amber-500/25",
+      "Red": "bg-red-500/15 text-red-200 ring-red-500/25",
+      "None": "bg-zinc-900 text-zinc-200 ring-zinc-800",
+    };
+
+    function cx(...parts) {
+      return parts.filter(Boolean).join(" ");
+    }
+
+    function Badge({ label, tone }) {
+      const cls = badgeStyle[tone || label] || "bg-zinc-900 text-zinc-200 ring-zinc-800";
+      return (
+        <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1", cls)}>
+          {label}
+        </span>
+      );
+    }
+
+    function RiskChip({ risk }) {
+      const cls = riskStyle[risk] || riskStyle["None"];
+      return (
+        <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1", cls)}>
+          {risk === "None" ? "No risk" : `Risk: ${risk}`}
+        </span>
+      );
+    }
+
+    function formatDT(dt) {
+      if (!dt) return "";
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return "";
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      let hh = d.getHours();
+      const min = String(d.getMinutes()).padStart(2, "0");
+      const ampm = hh >= 12 ? "PM" : "AM";
+      hh = hh % 12; if (hh === 0) hh = 12;
+      return `${mm}/${dd}/${yyyy} at ${hh}:${min} ${ampm}`;
+    }
+
+    function daysUntil(dt) {
+      if (!dt) return null;
+      const target = new Date(dt).getTime();
+      const now = Date.now();
+      const diff = target - now;
+      return Math.floor(diff / (1000 * 60 * 60 * 24));
+    }
+
+    // -------------------------
+    // Status computation rules
+    // -------------------------
+    function computeScheduleRisk({ scheduledAt, prereqsMet }) {
+      if (!scheduledAt) return "None";
+      const t = new Date(scheduledAt).getTime();
+      const now = Date.now();
+      const diffMs = t - now;
+
+      if (prereqsMet && diffMs > 0) return "Green";
+      const hours = diffMs / (1000 * 60 * 60);
+
+      // Past due or within 48h with unmet prereqs => Red
+      if (!prereqsMet && (hours <= 48)) return "Red";
+      // Within 7 days with unmet prereqs => Yellow
+      if (!prereqsMet && (hours <= 24 * 7)) return "Yellow";
+      // Otherwise: if unmet prereqs but not soon, keep Yellow as a gentle warning
+      if (!prereqsMet) return "Yellow";
+      return "Green";
+    }
+
+    function percentCompleteTimeline(timeline) {
+      // count Completed + Yes as done, ignore optional concept here
+      const total = timeline.length;
+      const done = timeline.filter((m) => m.status === "Completed" || m.status === "Yes").length;
+      return total ? Math.round((done / total) * 100) : 0;
+    }
+
+    // -------------------------
+    // Demo data (editable in UI)
+    // -------------------------
+    const initialData = {
+      header: {
+        restaurantName: "Nick’s Pizza",
+        contactName: "Owner Name",
+        lastUpdatedLabel: "9:15",
+      },
+      onboarding: {
+        overallStatus: "Active", // Active | On Hold | Completed
+        onHoldReason: "Waiting on menu uploads and site readiness.",
+      },
+      documents: {
+        processingInfoForm: {
+          title: "Processing Information Form",
+          helper: "Required to start payment processing setup.",
+          status: "Incomplete",
+          linkUrl: "https://example.com/processing-information-form",
+        },
+        processingAppSigned: {
+          title: "Processing Application Signed",
+          helper: "Marked complete when our team confirms signature in HubSpot.",
+          status: "Incomplete",
+        },
+        menuUpload: {
+          title: "Menu Item Upload",
+          helper: "Upload menus or the Excel template. Multiple files allowed.",
+          status: "Incomplete", // Incomplete | In Review | Changes Requested | Completed
+          uploads: [],
+          reviewNotes: "",
+        },
+        reportUpload: {
+          title: "Report Upload (Optional)",
+          helper: "Upload POS reports if you want before/after comparisons.",
+          status: "Not Provided", // Not Provided | In Review | Changes Requested | Completed
+          uploads: [],
+          reviewNotes: "",
+        }
+      },
+      timeline: [
+        { id: "db_draft", title: "Database Draft", status: "Incomplete", allowed: ["Incomplete", "In Progress", "Completed"] },
+        { id: "db_review", title: "Database Review", status: "Incomplete", allowed: ["Incomplete", "Scheduled", "Completed"], scheduledAt: null },
+        { id: "db_accepted", title: "Database Accepted", status: "No", allowed: ["No", "Yes"] },
+        { id: "site_inspection", title: "Site Inspection", status: "Incomplete", allowed: ["Incomplete", "Scheduled", "Completed"], scheduledAt: new Date(Date.now() + 1000*60*60*24*5).toISOString() },
+        { id: "installation", title: "Installation", status: "Incomplete", allowed: ["Incomplete", "Scheduled", "Completed"], scheduledAt: new Date(Date.now() + 1000*60*60*24*12).toISOString() },
+        { id: "training", title: "Training", status: "Incomplete", allowed: ["Incomplete", "Scheduled", "Completed"], scheduledAt: new Date(Date.now() + 1000*60*60*24*18).toISOString() },
+        { id: "go_live", title: "System Go-Live", status: "Incomplete", allowed: ["Incomplete", "Scheduled", "Completed"], scheduledAt: new Date(Date.now() + 1000*60*60*24*28).toISOString() },
+      ],
+    };
+
+    // -------------------------
+    // Prereq definitions (MVP defaults)
+    // -------------------------
+    function getPrereqs(state) {
+      const docs = state.documents;
+      const t = Object.fromEntries(state.timeline.map((m) => [m.id, m]));
+
+      const prereqs = {
+        db_review: [
+          { label: "Processing Information Form", ok: docs.processingInfoForm.status === "Completed" },
+          { label: "Menu Item Upload accepted", ok: docs.menuUpload.status === "Completed" },
+        ],
+        site_inspection: [
+          { label: "Database Draft completed", ok: t.db_draft?.status === "Completed" },
+        ],
+        installation: [
+          { label: "Database Accepted = Yes", ok: t.db_accepted?.status === "Yes" },
+          { label: "Site Inspection completed", ok: t.site_inspection?.status === "Completed" },
+          { label: "Processing Application Signed", ok: docs.processingAppSigned.status === "Completed" },
+        ],
+        training: [
+          { label: "Installation scheduled or completed", ok: ["Scheduled", "Completed"].includes(t.installation?.status) },
+          { label: "Database Accepted = Yes", ok: t.db_accepted?.status === "Yes" },
+        ],
+        go_live: [
+          { label: "Installation completed", ok: t.installation?.status === "Completed" },
+          { label: "Training completed", ok: t.training?.status === "Completed" },
+          { label: "Processing Application Signed", ok: docs.processingAppSigned.status === "Completed" },
+        ],
+      };
+
+      return prereqs;
+    }
+
+    function nextBlockingItems(state) {
+      const prereqs = getPrereqs(state);
+      // Find next scheduled milestone that isn't completed/yes
+      const tl = state.timeline;
+      const next = tl.find((m) => !["Completed", "Yes"].includes(m.status));
+      if (!next) return [];
+      const needed = prereqs[next.id] || [];
+      return needed.filter((x) => !x.ok).map((x) => x.label);
+    }
+
+    // -------------------------
+    // Components
+    // -------------------------
+    function SectionCard({ title, subtitle, children, right }) {
+      return (
+        <div className="rounded-3xl bg-zinc-900/40 p-6 ring-1 ring-zinc-800 backdrop-blur">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold">{title}</h2>
+              {subtitle ? <p className="mt-1 text-sm text-zinc-400">{subtitle}</p> : null}
+            </div>
+            {right}
+          </div>
+          <div className="mt-5">{children}</div>
+        </div>
+      );
+    }
+
+    function DocumentRow({ title, helper, badge, children }) {
+      return (
+        <div className="rounded-2xl bg-zinc-950/35 p-4 ring-1 ring-zinc-800">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-semibold">{title}</div>
+              </div>
+              {helper ? <div className="mt-1 text-xs text-zinc-400">{helper}</div> : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge label={badge} />
+            </div>
+          </div>
+          <div className="mt-3">{children}</div>
+        </div>
+      );
+    }
+
+    function FileList({ uploads }) {
+      if (!uploads || uploads.length === 0) {
+        return <div className="text-xs text-zinc-500">No files uploaded yet.</div>;
+      }
+      return (
+        <ul className="space-y-2">
+          {uploads.map((u, idx) => (
+            <li key={idx} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900/60 px-3 py-2 ring-1 ring-zinc-800">
+              <div className="min-w-0">
+                <div className="truncate text-xs font-semibold text-zinc-200">{u.name}</div>
+                <div className="text-[11px] text-zinc-500">Uploaded {new Date(u.uploadedAt).toLocaleString()}</div>
+              </div>
+              <div className="text-[11px] text-zinc-400">{u.sizeLabel}</div>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    function Modal({ open, title, subtitle, onClose, children, actions }) {
+      if (!open) return null;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 p-6 ring-1 ring-zinc-800">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-base font-semibold">{title}</div>
+                {subtitle ? <div className="mt-1 text-sm text-zinc-400">{subtitle}</div> : null}
+              </div>
+              <button
+                className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                onClick={onClose}
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-5">{children}</div>
+            {actions ? <div className="mt-6 flex items-center justify-end gap-2">{actions}</div> : null}
+          </div>
+        </div>
+      );
+    }
+
+    function TimelineItem({ m, idx, isLast, risk, prereqList, onRequestChange, onStatusChange, onScheduleChange }) {
+      const showScheduled = m.allowed.includes("Scheduled");
+      const scheduledLabel = m.scheduledAt ? formatDT(m.scheduledAt) : null;
+      const dUntil = m.scheduledAt ? daysUntil(m.scheduledAt) : null;
+
+      return (
+        <li className="relative rounded-2xl bg-zinc-950/35 p-4 ring-1 ring-zinc-800">
+          {!isLast ? <div className="pointer-events-none absolute left-[28px] top-[52px] h-[calc(100%_-_32px)] w-px bg-zinc-800" /> : null}
+
+          <div className="flex gap-4">
+            <div className="mt-0.5 flex flex-col items-center">
+              <div className={cx("h-3.5 w-3.5 rounded-full ring-4 ring-zinc-950",
+                m.status === "Completed" || m.status === "Yes"
+                  ? "bg-emerald-500 ring-emerald-500"
+                  : m.status === "Scheduled" || m.status === "In Progress"
+                    ? "bg-sky-500 ring-sky-500"
+                    : "bg-zinc-700 ring-zinc-700"
+              )} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{m.title}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <Badge label={m.status} />
+                    {m.status === "Scheduled" && risk ? <RiskChip risk={risk} /> : null}
+                    {m.status === "Scheduled" && m.scheduledAt ? (
+                      <span className="text-[11px] text-zinc-400">
+                        {dUntil !== null ? (dUntil >= 0 ? `${dUntil}d remaining` : `${Math.abs(dUntil)}d past due`) : ""}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {m.status === "Scheduled" && scheduledLabel ? (
+                    <div className="mt-2 text-xs text-zinc-300">
+                      Scheduled for <span className="font-semibold text-zinc-100">{scheduledLabel}</span>
+                    </div>
+                  ) : null}
+
+                  {m.status === "Scheduled" && prereqList && prereqList.length ? (
+                    <div className="mt-3 rounded-xl bg-zinc-900/60 p-3 ring-1 ring-zinc-800">
+                      <div className="text-[11px] font-semibold text-zinc-200">Prerequisites</div>
+                      <ul className="mt-2 space-y-1">
+                        {prereqList.map((p, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[11px] text-zinc-300">
+                            <span className={cx("mt-[3px] inline-block h-2 w-2 rounded-full",
+                              p.ok ? "bg-emerald-500" : "bg-zinc-600"
+                            )} />
+                            <span className={cx(p.ok ? "text-zinc-300" : "text-zinc-200")}>{p.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  <select
+                    className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 outline-none hover:bg-zinc-800"
+                    value={m.status}
+                    onChange={(e) => onStatusChange(m.id, e.target.value)}
+                  >
+                    {m.allowed.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+
+                  {showScheduled ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-xl bg-orange-600/15 px-3 py-2 text-xs text-orange-200 ring-1 ring-orange-500/25 hover:bg-orange-600/20"
+                        onClick={() => onRequestChange(m)}
+                        disabled={m.status !== "Scheduled"}
+                        title={m.status !== "Scheduled" ? "Only available when Scheduled" : "Request a date change"}
+                      >
+                        Request Date Change
+                      </button>
+
+                      <button
+                        type="button"
+                        className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                        onClick={() => onScheduleChange(m)}
+                        disabled={m.status !== "Scheduled"}
+                        title={m.status !== "Scheduled" ? "Only available when Scheduled" : "Edit scheduled time (prototype)"}
+                      >
+                        Edit Time
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+      );
+    }
+
+    // -------------------------
+    // App
+    // -------------------------
+    function App() {
+      const [state, setState] = useState(() => JSON.parse(JSON.stringify(initialData)));
+      const [showChangeModal, setShowChangeModal] = useState(false);
+      const [showScheduleModal, setShowScheduleModal] = useState(false);
+      const [activeMilestone, setActiveMilestone] = useState(null);
+
+      const [changeReq, setChangeReq] = useState({
+        reason: "Not ready",
+        windows: "",
+        notes: "",
+      });
+
+      const [scheduleEdit, setScheduleEdit] = useState({
+        dt: "",
+      });
+
+      const prereqs = useMemo(() => getPrereqs(state), [state]);
+
+      const timelineWithRisk = useMemo(() => {
+        const t = Object.fromEntries(state.timeline.map((m) => [m.id, m]));
+        return state.timeline.map((m) => {
+          if (m.status !== "Scheduled") return { ...m, risk: "None", prereqList: [] };
+          const list = prereqs[m.id] || [];
+          const met = list.every((x) => x.ok);
+          const risk = computeScheduleRisk({ scheduledAt: m.scheduledAt, prereqsMet: met });
+          return { ...m, risk, prereqList: list };
+        });
+      }, [state.timeline, prereqs]);
+
+      const overallPct = useMemo(() => percentCompleteTimeline(state.timeline), [state.timeline]);
+
+      const blocking = useMemo(() => nextBlockingItems(state), [state]);
+
+      function setDoc(path, patch) {
+        setState((prev) => {
+          const next = JSON.parse(JSON.stringify(prev));
+          next.documents[path] = { ...next.documents[path], ...patch };
+          return next;
+        });
+      }
+
+      function updateTimeline(id, patch) {
+        setState((prev) => {
+          const next = JSON.parse(JSON.stringify(prev));
+          next.timeline = next.timeline.map((m) => (m.id === id ? { ...m, ...patch } : m));
+          return next;
+        });
+      }
+
+      function onCompleteForm() {
+        // Open the link and mark complete for prototype
+        window.open(state.documents.processingInfoForm.linkUrl, "_blank");
+        setDoc("processingInfoForm", { status: "Completed" });
+      }
+
+      function onUpload(docKey, files) {
+        const arr = Array.from(files || []);
+        if (!arr.length) return;
+
+        const uploads = arr.map((f) => ({
+          name: f.name,
+          size: f.size,
+          sizeLabel: (f.size / (1024 * 1024) >= 1)
+            ? `${(f.size / (1024 * 1024)).toFixed(2)} MB`
+            : `${Math.max(1, Math.round(f.size / 1024))} KB`,
+          uploadedAt: new Date().toISOString(),
+        }));
+
+        const current = state.documents[docKey].uploads || [];
+        const nextUploads = [...current, ...uploads];
+
+        // After upload submit: mark In Review
+        const nextStatus =
+          docKey === "reportUpload"
+            ? "In Review"
+            : "In Review";
+
+        setDoc(docKey, { uploads: nextUploads, status: nextStatus });
+      }
+
+      function onInternalAccept(docKey) {
+        setDoc(docKey, { status: "Completed", reviewNotes: "" });
+      }
+
+      function onChangesRequested(docKey) {
+        setDoc(docKey, { status: "Changes Requested", reviewNotes: "Please re-upload: missing a current dinner menu and bar menu." });
+      }
+
+      function onStatusChangeTimeline(id, newStatus) {
+        updateTimeline(id, { status: newStatus });
+      }
+
+      function openChangeModal(m) {
+        setActiveMilestone(m);
+        setShowChangeModal(true);
+      }
+
+      function submitDateChange() {
+        // Prototype: log and close
+        console.log("[DUMMY] Date change request", {
+          milestone: activeMilestone,
+          request: changeReq,
+        });
+        setShowChangeModal(false);
+        setActiveMilestone(null);
+        setChangeReq({ reason: "Not ready", windows: "", notes: "" });
+      }
+
+      function openScheduleModal(m) {
+        setActiveMilestone(m);
+        setScheduleEdit({ dt: m.scheduledAt ? m.scheduledAt.slice(0,16) : "" });
+        setShowScheduleModal(true);
+      }
+
+      function saveScheduleEdit() {
+        if (!activeMilestone) return;
+        const iso = scheduleEdit.dt ? new Date(scheduleEdit.dt).toISOString() : null;
+        updateTimeline(activeMilestone.id, { scheduledAt: iso });
+        setShowScheduleModal(false);
+        setActiveMilestone(null);
+      }
+
+      function toggleOnHold() {
+        setState((prev) => {
+          const next = JSON.parse(JSON.stringify(prev));
+          next.onboarding.overallStatus = next.onboarding.overallStatus === "On Hold" ? "Active" : "On Hold";
+          return next;
+        });
+      }
+
+      function setOverallStatus(v) {
+        setState((prev) => {
+          const next = JSON.parse(JSON.stringify(prev));
+          next.onboarding.overallStatus = v;
+          return next;
+        });
+      }
+
+      // derived
+      const overallStatus = state.onboarding.overallStatus;
+
+      return (
+        <div className="min-h-screen bg-zinc-950 text-zinc-100">
+          <div className="pointer-events-none fixed inset-x-0 top-0 h-56 bg-gradient-to-b from-orange-600/20 via-orange-600/5 to-transparent" />
+
+          <div className="mx-auto max-w-6xl px-5 py-10">
+            {/* Header */}
+            <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 overflow-hidden rounded-2xl bg-orange-600/15 ring-1 ring-orange-500/25">
+                  <img
+                    src={BRAND.logoSrc}
+                    alt="Alpha"
+                    className="h-full w-full object-contain p-2"
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                  <div className="grid h-full w-full place-items-center text-xs text-orange-200">α</div>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="text-sm text-zinc-400">{BRAND.name}</div>
+                  <h1 className="text-xl font-semibold tracking-tight">
+                    Customer Onboarding Tracker
+                  </h1>
+                  <div className="mt-1 text-sm text-zinc-400">
+                    {state.header.restaurantName} • <span className="text-zinc-300">{state.header.contactName}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800">
+                  Updated {state.header.lastUpdatedLabel}
+                </span>
+
+                <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800">
+                  Progress {overallPct}%
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 outline-none hover:bg-zinc-800"
+                    value={overallStatus}
+                    onChange={(e) => setOverallStatus(e.target.value)}
+                    title="Prototype control"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+            </header>
+
+            {/* On Hold banner */}
+            {overallStatus === "On Hold" ? (
+              <div className="mt-6 rounded-3xl bg-orange-600/10 p-5 ring-1 ring-orange-500/25">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Badge label="On Hold" />
+                      <div className="text-sm font-semibold">This onboarding is currently paused.</div>
+                    </div>
+                    <div className="mt-2 text-sm text-zinc-300">
+                      {state.onboarding.onHoldReason || "On hold reason not specified."}
+                    </div>
+                  </div>
+                  <button
+                    className="rounded-2xl bg-zinc-950/40 px-4 py-2 text-xs text-zinc-200 ring-1 ring-orange-500/25 hover:bg-zinc-900"
+                    onClick={toggleOnHold}
+                  >
+                    Resume (prototype)
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Main grid */}
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              {/* Document Completion */}
+              <SectionCard
+                title="Document Completion"
+                subtitle="Complete the required items below. Uploads go to review before they are marked completed."
+                right={
+                  <div className="hidden md:flex items-center gap-2">
+                    <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800">Customer-facing</span>
+                    <span className="rounded-full bg-orange-600/15 px-3 py-1 text-xs text-orange-200 ring-1 ring-orange-500/25">Prototype</span>
+                  </div>
+                }
+              >
+                <div className="space-y-3">
+                  <DocumentRow
+                    title={state.documents.processingInfoForm.title}
+                    helper={state.documents.processingInfoForm.helper}
+                    badge={state.documents.processingInfoForm.status}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-2xl bg-orange-600 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-orange-500"
+                        onClick={onCompleteForm}
+                      >
+                        Complete Form
+                      </button>
+                      <a
+                        className="text-xs text-zinc-400 underline decoration-zinc-700 hover:text-zinc-200"
+                        href={state.documents.processingInfoForm.linkUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open link
+                      </a>
+                      <span className="text-xs text-zinc-500">Opens in new tab.</span>
+                    </div>
+                  </DocumentRow>
+
+                  <DocumentRow
+                    title={state.documents.processingAppSigned.title}
+                    helper={state.documents.processingAppSigned.helper}
+                    badge={state.documents.processingAppSigned.status}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                        onClick={() => setDoc("processingAppSigned", { status: "Completed" })}
+                        title="Prototype control"
+                      >
+                        Mark Completed (demo)
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                        onClick={() => setDoc("processingAppSigned", { status: "Incomplete" })}
+                        title="Prototype control"
+                      >
+                        Reset (demo)
+                      </button>
+                      <span className="text-xs text-zinc-500">In production this is driven by HubSpot.</span>
+                    </div>
+                  </DocumentRow>
+
+                  <DocumentRow
+                    title={state.documents.menuUpload.title}
+                    helper={state.documents.menuUpload.helper}
+                    badge={state.documents.menuUpload.status}
+                  >
+                    <div className="grid gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="rounded-2xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800 cursor-pointer">
+                          Upload Files
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => onUpload("menuUpload", e.target.files)}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                          onClick={() => onInternalAccept("menuUpload")}
+                          title="Prototype: simulate onboarding acceptance"
+                        >
+                          Accept (demo)
+                        </button>
+
+                        <button
+                          type="button"
+                          className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                          onClick={() => onChangesRequested("menuUpload")}
+                          title="Prototype: simulate changes requested"
+                        >
+                          Changes Requested (demo)
+                        </button>
+
+                        <button
+                          type="button"
+                          className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                          onClick={() => setDoc("menuUpload", { status: "Incomplete", uploads: [], reviewNotes: "" })}
+                          title="Prototype control"
+                        >
+                          Reset
+                        </button>
+                      </div>
+
+                      {state.documents.menuUpload.reviewNotes ? (
+                        <div className="rounded-xl bg-red-500/10 p-3 text-xs text-red-200 ring-1 ring-red-500/25">
+                          <div className="font-semibold">Review note</div>
+                          <div className="mt-1 text-red-100/90">{state.documents.menuUpload.reviewNotes}</div>
+                        </div>
+                      ) : null}
+
+                      <FileList uploads={state.documents.menuUpload.uploads} />
+                    </div>
+                  </DocumentRow>
+
+                  <DocumentRow
+                    title={state.documents.reportUpload.title}
+                    helper={state.documents.reportUpload.helper}
+                    badge={state.documents.reportUpload.status}
+                  >
+                    <div className="grid gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="rounded-2xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800 cursor-pointer">
+                          Upload Files
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => onUpload("reportUpload", e.target.files)}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                          onClick={() => onInternalAccept("reportUpload")}
+                          title="Prototype: simulate onboarding acceptance"
+                        >
+                          Accept (demo)
+                        </button>
+
+                        <button
+                          type="button"
+                          className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                          onClick={() => onChangesRequested("reportUpload")}
+                          title="Prototype: simulate changes requested"
+                        >
+                          Changes Requested (demo)
+                        </button>
+
+                        <button
+                          type="button"
+                          className="rounded-xl bg-zinc-900 px-3 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                          onClick={() => setDoc("reportUpload", { status: "Not Provided", uploads: [], reviewNotes: "" })}
+                          title="Prototype control"
+                        >
+                          Reset
+                        </button>
+                      </div>
+
+                      {state.documents.reportUpload.reviewNotes ? (
+                        <div className="rounded-xl bg-red-500/10 p-3 text-xs text-red-200 ring-1 ring-red-500/25">
+                          <div className="font-semibold">Review note</div>
+                          <div className="mt-1 text-red-100/90">{state.documents.reportUpload.reviewNotes}</div>
+                        </div>
+                      ) : null}
+
+                      <FileList uploads={state.documents.reportUpload.uploads} />
+                    </div>
+                  </DocumentRow>
+                </div>
+              </SectionCard>
+
+              {/* Timeline */}
+              <SectionCard
+                title="Onboarding Timeline"
+                subtitle="This is the live, customer-facing timeline. Statuses will be driven by HubSpot in production."
+                right={
+                  <div className="flex items-center gap-2">
+                    {blocking.length ? (
+                      <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800">
+                        Blocking: {blocking.length}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs text-emerald-200 ring-1 ring-emerald-500/25">
+                        No blockers
+                      </span>
+                    )}
+                  </div>
+                }
+              >
+                {blocking.length ? (
+                  <div className="mb-4 rounded-2xl bg-zinc-950/35 p-4 ring-1 ring-zinc-800">
+                    <div className="text-xs font-semibold text-zinc-200">What’s blocking us right now</div>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-zinc-300">
+                      {blocking.map((b, i) => <li key={i}>{b}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+
+                <ol className="space-y-3">
+                  {timelineWithRisk.map((m, idx) => (
+                    <TimelineItem
+                      key={m.id}
+                      m={m}
+                      idx={idx}
+                      isLast={idx === timelineWithRisk.length - 1}
+                      risk={m.risk}
+                      prereqList={m.prereqList}
+                      onRequestChange={(milestone) => { setActiveMilestone(milestone); setShowChangeModal(true); }}
+                      onStatusChange={onStatusChangeTimeline}
+                      onScheduleChange={(milestone) => openScheduleModal(milestone)}
+                    />
+                  ))}
+                </ol>
+
+                <div className="mt-6 rounded-2xl bg-zinc-950/35 p-4 text-xs text-zinc-400 ring-1 ring-zinc-800">
+                  <div className="font-semibold text-zinc-200">Prototype controls</div>
+                  <div className="mt-2 space-y-1">
+                    <div>• Use the dropdowns to simulate HubSpot-driven statuses.</div>
+                    <div>• “Accept / Changes Requested” simulate internal review outcomes for uploads.</div>
+                    <div>• Risk chips compute automatically based on prerequisites + scheduled dates.</div>
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+
+            {/* Modals */}
+            <Modal
+              open={showChangeModal}
+              title="Request a date change"
+              subtitle={activeMilestone ? `For: ${activeMilestone.title}` : ""}
+              onClose={() => setShowChangeModal(false)}
+              actions={
+                <>
+                  <button
+                    className="rounded-2xl bg-zinc-900 px-4 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                    onClick={() => setShowChangeModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="rounded-2xl bg-orange-600 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-orange-500"
+                    onClick={submitDateChange}
+                  >
+                    Submit Request
+                  </button>
+                </>
+              }
+            >
+              <div className="grid gap-4">
+                <div>
+                  <label className="text-xs text-zinc-400">Reason</label>
+                  <select
+                    className="mt-1 w-full rounded-2xl bg-zinc-900 px-4 py-3 text-sm text-zinc-200 ring-1 ring-zinc-800 outline-none hover:bg-zinc-800"
+                    value={changeReq.reason}
+                    onChange={(e) => setChangeReq({ ...changeReq, reason: e.target.value })}
+                  >
+                    <option>Not ready</option>
+                    <option>Staffing conflict</option>
+                    <option>Construction / remodel</option>
+                    <option>Need more time for data</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-400">Preferred date/time windows</label>
+                  <input
+                    className="mt-1 w-full rounded-2xl bg-zinc-900 px-4 py-3 text-sm text-zinc-200 ring-1 ring-zinc-800 outline-none hover:bg-zinc-800"
+                    placeholder="Example: Tue–Thu after 2pm, or next week mornings"
+                    value={changeReq.windows}
+                    onChange={(e) => setChangeReq({ ...changeReq, windows: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-400">Notes</label>
+                  <textarea
+                    className="mt-1 w-full rounded-2xl bg-zinc-900 px-4 py-3 text-sm text-zinc-200 ring-1 ring-zinc-800 outline-none hover:bg-zinc-800"
+                    rows="4"
+                    placeholder="Add context that helps us reschedule quickly."
+                    value={changeReq.notes}
+                    onChange={(e) => setChangeReq({ ...changeReq, notes: e.target.value })}
+                  />
+                </div>
+
+                <div className="rounded-2xl bg-zinc-900/60 p-3 text-xs text-zinc-400 ring-1 ring-zinc-800">
+                  In production, submitting creates a HubSpot task/ticket and notifies your onboarding coordinator.
+                </div>
+              </div>
+            </Modal>
+
+            <Modal
+              open={showScheduleModal}
+              title="Edit scheduled time (prototype)"
+              subtitle={activeMilestone ? `For: ${activeMilestone.title}` : ""}
+              onClose={() => setShowScheduleModal(false)}
+              actions={
+                <>
+                  <button
+                    className="rounded-2xl bg-zinc-900 px-4 py-2 text-xs text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-800"
+                    onClick={() => setShowScheduleModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="rounded-2xl bg-orange-600 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-orange-500"
+                    onClick={saveScheduleEdit}
+                  >
+                    Save
+                  </button>
+                </>
+              }
+            >
+              <div className="grid gap-3">
+                <div>
+                  <label className="text-xs text-zinc-400">Scheduled date/time</label>
+                  <input
+                    type="datetime-local"
+                    className="mt-1 w-full rounded-2xl bg-zinc-900 px-4 py-3 text-sm text-zinc-200 ring-1 ring-zinc-800 outline-none hover:bg-zinc-800"
+                    value={scheduleEdit.dt}
+                    onChange={(e) => setScheduleEdit({ dt: e.target.value })}
+                  />
+                </div>
+                <div className="rounded-2xl bg-zinc-900/60 p-3 text-xs text-zinc-400 ring-1 ring-zinc-800">
+                  This is only for demo/testing schedule risk behaviors.
+                </div>
+              </div>
+            </Modal>
+
+            <footer className="mt-10 text-xs text-zinc-500">
+              Tip: open DevTools → Console to see “Request Date Change” submissions.
+            </footer>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
