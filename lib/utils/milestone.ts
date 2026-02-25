@@ -1,4 +1,4 @@
-import { Milestone, MilestoneStatus } from '@prisma/client'
+import { Milestone } from '@prisma/client'
 
 export type RiskLevel = 'green' | 'yellow' | 'red'
 
@@ -6,6 +6,17 @@ export interface MilestoneWithRisk extends Milestone {
   riskLevel?: RiskLevel
   isBlocked?: boolean
   blockingItems?: string[]
+}
+
+/** Parse prerequisite milestone IDs from JSON field. */
+export function parsePrerequisiteIds(milestone: Milestone): string[] {
+  const raw = milestone.prerequisiteMilestoneIds
+  if (!raw) return []
+  try {
+    return Array.isArray(raw) ? raw : JSON.parse(raw as string)
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -23,7 +34,6 @@ export function computeScheduleRisk(
     return null
   }
 
-  // Check if prerequisites are met
   const prerequisitesMet = checkPrerequisites(milestone, allMilestones)
 
   // If no target date, can't calculate risk
@@ -59,93 +69,40 @@ export function computeScheduleRisk(
   return 'green'
 }
 
-/**
- * Check if all prerequisite milestones are completed
- */
+/** Check if all prerequisite milestones are completed. */
 export function checkPrerequisites(
   milestone: Milestone,
   allMilestones: Milestone[]
 ): boolean {
-  // Parse prerequisite IDs from JSON
-  let prerequisiteIds: string[] = []
-  if (milestone.prerequisiteMilestoneIds) {
-    try {
-      prerequisiteIds = Array.isArray(milestone.prerequisiteMilestoneIds)
-        ? milestone.prerequisiteMilestoneIds
-        : JSON.parse(milestone.prerequisiteMilestoneIds as string)
-    } catch {
-      prerequisiteIds = []
-    }
-  }
-
-  if (!prerequisiteIds || prerequisiteIds.length === 0) {
-    return true // No prerequisites = always met
-  }
-
-  // Find all prerequisite milestones
-  const prerequisites = allMilestones.filter(m =>
-    prerequisiteIds.includes(m.id)
-  )
-
-  // All prerequisites must be completed
+  const prerequisiteIds = parsePrerequisiteIds(milestone)
+  if (prerequisiteIds.length === 0) return true
+  const prerequisites = allMilestones.filter(m => prerequisiteIds.includes(m.id))
   return prerequisites.every(m => m.status === 'COMPLETED')
 }
 
-/**
- * Get list of blocking items (prerequisites that aren't completed)
- */
+/** Get list of blocking items (incomplete prerequisites) for a milestone. */
 export function getBlockingItems(
   milestone: Milestone,
   allMilestones: Milestone[]
 ): string[] {
-  // Parse prerequisite IDs from JSON
-  let prerequisiteIds: string[] = []
-  if (milestone.prerequisiteMilestoneIds) {
-    try {
-      prerequisiteIds = Array.isArray(milestone.prerequisiteMilestoneIds)
-        ? milestone.prerequisiteMilestoneIds
-        : JSON.parse(milestone.prerequisiteMilestoneIds as string)
-    } catch {
-      prerequisiteIds = []
-    }
-  }
-
-  if (!prerequisiteIds || prerequisiteIds.length === 0) {
-    return []
-  }
-
-  const prerequisites = allMilestones.filter(m =>
-    prerequisiteIds.includes(m.id)
-  )
-
-  const incompletePrerequisites = prerequisites.filter(m => m.status !== 'COMPLETED')
-
-  return incompletePrerequisites.map(m => m.name)
+  const prerequisiteIds = parsePrerequisiteIds(milestone)
+  if (prerequisiteIds.length === 0) return []
+  const prerequisites = allMilestones.filter(m => prerequisiteIds.includes(m.id))
+  return prerequisites
+    .filter(m => m.status !== 'COMPLETED')
+    .map(m => m.name)
 }
 
-/**
- * Get all blocking items for a project
- */
+/** Get all blocking items for a project (unique, from incomplete milestones). */
 export function getNextBlockingItems(milestones: Milestone[]): string[] {
-  const blockingItems: string[] = []
-
-  for (const milestone of milestones) {
-    // Only check milestones that are not completed
-    if (milestone.status !== 'COMPLETED') {
-      const items = getBlockingItems(milestone, milestones)
-      if (items.length > 0) {
-        blockingItems.push(...items)
-      }
-    }
+  const items: string[] = []
+  for (const m of milestones) {
+    if (m.status !== 'COMPLETED') items.push(...getBlockingItems(m, milestones))
   }
-
-  // Remove duplicates (Array.from for ES5 target compatibility)
-  return Array.from(new Set(blockingItems))
+  return [...new Set(items)]
 }
 
-/**
- * Check if milestone is blocked by prerequisites
- */
+/** True if milestone is not completed and has unmet prerequisites. */
 export function isMilestoneBlocked(
   milestone: Milestone,
   allMilestones: Milestone[]
