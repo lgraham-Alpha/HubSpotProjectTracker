@@ -22,7 +22,7 @@ model Project {
   hubspotDealId String?    @unique
   hubspotContactId String?
   hubspotProjectTrackingId String? @unique
-  keyDateSourceIds Json?   // Optional: which sourceIds count as "key dates" on track page (array of strings). Null = use default set.
+  keyDateSourceIds Json?   @map("keyDateSourceIds") // Optional: which sourceIds count as "key dates" on track page (array of strings). Null = use default set. Spelling: capital I in Ids.
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
