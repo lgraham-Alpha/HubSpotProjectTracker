@@ -12,7 +12,10 @@ export async function GET(
       include: {
         project: {
           include: {
-            milestones: { orderBy: { order: 'asc' } },
+            milestones: {
+              where: { showOnTrackPage: true },
+              orderBy: { order: 'asc' },
+            },
             activityLogs: { orderBy: { createdAt: 'desc' }, take: 10 },
           },
         },

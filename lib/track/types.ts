@@ -31,6 +31,8 @@ export interface ProjectData {
   description: string | null
   status: string
   expectedCompletionDate: string | null
+  /** When set, which sourceIds count as "key dates" on track page. Undefined = use default set. */
+  keyDateSourceIds?: string[]
   milestones: SerializedMilestone[]
   activityLogs: SerializedActivityLog[]
 }

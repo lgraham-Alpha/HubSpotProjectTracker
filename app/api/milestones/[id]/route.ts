@@ -81,6 +81,9 @@ export async function PUT(
         ? (JSON.stringify(validated.prerequisiteMilestoneIds) as unknown as Prisma.InputJsonValue)
         : Prisma.JsonNull
     }
+    if (validated.showOnTrackPage !== undefined) {
+      updateData.showOnTrackPage = validated.showOnTrackPage
+    }
 
     // Auto-set completedDate if status is COMPLETED and completedDate is not set
     if (validated.status === 'COMPLETED' && !updateData.completedDate && !currentMilestone.completedDate) {

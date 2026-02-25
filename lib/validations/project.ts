@@ -19,6 +19,7 @@ export const createProjectSchema = z.object({
   expectedCompletionDate: z.string().datetime().optional().nullable(),
   hubspotDealId: z.string().optional().nullable(),
   hubspotContactId: z.string().optional().nullable(),
+  keyDateSourceIds: z.array(z.string()).optional().nullable(),
 })
 
 export const createMilestoneSchema = z.object({
@@ -38,6 +39,7 @@ export const updateMilestoneSchema = z.object({
   completedDate: optionalDateStringSchema,
   order: z.number().int().optional(),
   prerequisiteMilestoneIds: z.array(z.string()).optional(),
+  showOnTrackPage: z.boolean().optional(),
 })
 
 export const createTokenSchema = z.object({

@@ -30,6 +30,7 @@ type ProjectWithRelations = {
   description: string | null
   status: string
   expectedCompletionDate: Date | null
+  keyDateSourceIds?: unknown
   milestones: MilestoneWithDates[]
   activityLogs: ActivityLogWithDates[]
 }
@@ -60,12 +61,20 @@ export function serializeProjectForTrack(
   const total = project.milestones.length
   const progressPercentage = total > 0 ? Math.round((completed / total) * 100) : 0
 
+  const keyDateSourceIds = (() => {
+    const raw = project.keyDateSourceIds
+    if (raw == null) return undefined
+    const arr = Array.isArray(raw) ? raw : []
+    return arr.filter((x): x is string => typeof x === 'string')
+  })()
+
   const projectPayload = {
     id: project.id,
     name: project.name,
     description: project.description,
     status: project.status,
     expectedCompletionDate: toIso(project.expectedCompletionDate),
+    ...(keyDateSourceIds !== undefined && { keyDateSourceIds }),
     ...(includeProgress && { progressPercentage }),
   }
 

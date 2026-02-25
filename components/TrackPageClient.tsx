@@ -10,18 +10,12 @@ import {
 } from '@/lib/utils/milestone'
 import type { Milestone } from '@prisma/client'
 import { formatTrackDate, formatTrackDateTime, daysUntil } from '@/lib/track/date'
+import { DEFAULT_KEY_DATE_SOURCE_IDS } from '@/lib/track/constants'
 import type { ProjectData, SerializedMilestone } from '@/lib/track/types'
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 
-const KEY_DATE_SOURCE_IDS = new Set([
-  'targeted_go_live',
-  'actual_go_live',
-  'targeted_installation',
-  'actual_installation',
-  'targeted_training',
-  'actual_training',
-])
+const DEFAULT_KEY_DATE_SET = new Set(DEFAULT_KEY_DATE_SOURCE_IDS)
 
 const SECTION_CARD_CLASS =
   'rounded-3xl bg-zinc-900/40 p-6 ring-1 ring-zinc-800 backdrop-blur'
@@ -100,23 +94,31 @@ export default function TrackPageClient({ initialData, token }: TrackPageClientP
     return () => clearInterval(interval)
   }, [refreshData])
 
+  const keyDateSet = useMemo(
+    () =>
+      project.keyDateSourceIds && project.keyDateSourceIds.length > 0
+        ? new Set(project.keyDateSourceIds)
+        : DEFAULT_KEY_DATE_SET,
+    [project.keyDateSourceIds]
+  )
+
   const keyDates = useMemo(
     () =>
       project.milestones.filter(
         (m) =>
           m.sourceId &&
-          KEY_DATE_SOURCE_IDS.has(m.sourceId) &&
+          keyDateSet.has(m.sourceId) &&
           (m.targetDate || m.completedDate)
       ),
-    [project.milestones]
+    [project.milestones, keyDateSet]
   )
 
   const checklistMilestones = useMemo(
     () =>
       project.milestones.filter(
-        (m) => !m.sourceId || !KEY_DATE_SOURCE_IDS.has(m.sourceId)
+        (m) => !m.sourceId || !keyDateSet.has(m.sourceId)
       ),
-    [project.milestones]
+    [project.milestones, keyDateSet]
   )
 
   const milestonesAsPrisma = useMemo(

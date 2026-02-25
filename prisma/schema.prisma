@@ -22,6 +22,7 @@ model Project {
   hubspotDealId String?    @unique
   hubspotContactId String?
   hubspotProjectTrackingId String? @unique
+  keyDateSourceIds Json?   // Optional: which sourceIds count as "key dates" on track page (array of strings). Null = use default set.
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -62,6 +63,7 @@ model Milestone {
   order                  Int      @default(0)
   sourceId               String?  // HubSpot task property internal name for sync
   prerequisiteMilestoneIds Json?  // Array of milestone IDs that must be completed first (stored as JSON)
+  showOnTrackPage        Boolean  @default(true) // If false, hidden from customer track page
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 
 export async function GET(
@@ -101,6 +102,12 @@ export async function PUT(
     }
     if (validated.hubspotContactId !== undefined) {
       updateData.hubspotContactId = validated.hubspotContactId
+    }
+    if (validated.keyDateSourceIds !== undefined) {
+      updateData.keyDateSourceIds =
+        validated.keyDateSourceIds && validated.keyDateSourceIds.length > 0
+          ? (JSON.stringify(validated.keyDateSourceIds) as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull
     }
 
     const project = await prisma.project.update({
