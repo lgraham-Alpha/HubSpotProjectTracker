@@ -110,10 +110,6 @@ export async function PUT(
           : Prisma.JsonNull
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ebb1e4'},body:JSON.stringify({sessionId:'ebb1e4',location:'app/api/projects/[id]/route.ts:PUT',message:'Project update payload keys',data:{updateKeys:Object.keys(updateData),hasKeyDateField:'keyDateSourceIds' in updateData},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
-
     const project = await prisma.project.update({
       where: { id: params.id },
       data: updateData,
@@ -139,10 +135,6 @@ export async function PUT(
 
     return NextResponse.json(serialized)
   } catch (error: any) {
-    // #region agent log
-    const errMsg = error?.message ?? String(error)
-    fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ebb1e4'},body:JSON.stringify({sessionId:'ebb1e4',location:'app/api/projects/[id]/route.ts:PUT catch',message:'Project update error',data:{code:error?.code,name:error?.name,message:errMsg},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
     if (error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Project not found' },

@@ -114,9 +114,6 @@ export async function runHubSpotProjectSync(): Promise<SyncResult> {
 
       let projectId: string
       if (existing) {
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/6aca2622-a87d-49d8-98d0-5e9ec39c4f46',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ebb1e4'},body:JSON.stringify({sessionId:'ebb1e4',location:'lib/hubspot/sync-projects.ts:project.update',message:'Sync project.update before call',data:{updateKeys:['name','customerEmail','description']},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
         await prisma.project.update({
           where: { id: existing.id },
           data: { name, customerEmail, description },
